@@ -1,36 +1,71 @@
 import discord
 from discord.ext import commands
-from discord.ui import Button, View
+class TicketSystem(commands.Cog):
+    “”“
+    A cog for managing a ticket system in a Discord bot using Pycord.
+    “”“
+def __init__(self, bot):
+    self.bot = bot
+    self.blacklist = set()  # Set to hold blacklisted user IDs
 
-class TicketView(View):
-    def __init__(self):
-        super().__init__(timeout=None)
+@commands.command()
+async def setup(self, ctx):
+    """
+    Sets up the ticket system by creating necessary channels and roles.
+    """
+    # Create a category for tickets
+    category = await ctx.guild.create_category("Tickets")
+    await ctx.send(f"Ticket category '{category.name}' created.")
 
-    @discord.ui.button(label="Open Ticket", style=discord.ButtonStyle.green, custom_id="open_ticket")
-    async def ticket_callback(self, interaction: discord.Interaction, button: Button):
-        guild = interaction.guild
-        user = interaction.user
-        overwrites = {
-            guild.default_role: discord.PermissionOverwrite(read_messages=False),
-            user: discord.PermissionOverwrite(read_messages=True)
-        }
-        channel = await guild.create_text_channel(name=f"ticket-{user.name}", overwrites=overwrites)
+@commands.command()
+async def close(self, ctx):
+    """
+    Closes the ticket channel where the command is invoked.
+    """
+    if ctx.channel.category and ctx.channel.category.name == "Tickets":
+        await ctx.channel.send("This ticket will be closed.")
+        await ctx.channel.delete()
+    else:
+        await ctx.send("This command can only be used in a ticket channel.")
 
-        await interaction.response.send_message(f"Your ticket has been created: {channel.mention}", ephemeral=True)
+@commands.command()
+async def closerequest(self, ctx):
+    """
+    Requests to close the ticket. This can be used to notify staff.
+    """
+    await ctx.send("A request to close this ticket has been sent.")
 
-class TicketCog(commands.Cog):
-    def __init__(self, bot):
-        super().__init__()
-        self.bot = bot
+@commands.command()
+async def add(self, ctx, member: discord.Member):
+    """
+    Adds a member to the ticket channel.
+    """
+    await ctx.channel.set_permissions(member, read_messages=True, send_messages=True)
+    await ctx.send(f"{member.mention} has been added to the ticket.")
 
-    @commands.command()
-    async def setup(self, ctx):
-        embed = discord.Embed(
-            title="🛠️ Support Desk",
-            description="Need help? Click the button below to open a private ticket.",
-            color=discord.Color.blue()
-        )
-        await ctx.send(embed=embed, view=TicketView())
+@commands.command()
+async def remove(self, ctx, member: discord.Member):
+    """
+    Removes a member from the ticket channel.
+    """
+    await ctx.channel.set_permissions(member, read_messages=False, send_messages=False)
+    await ctx.send(f"{member.mention} has been removed from the ticket.")
+
+@commands.command()
+async def ticket_blacklist_add(self, ctx, member: discord.Member):
+    """
+    Adds a member to the ticket blacklist.
+    """
+    self.blacklist.add(member.id)
+    await ctx.send(f"{member.mention} has been added to the ticket blacklist.")
+
+@commands.command()
+async def ticket_blacklist_remove(self, ctx, member: discord.Member):
+    """
+    Removes a member from the ticket blacklist.
+    """
+    self.blacklist.discard(member.id)
+    await ctx.send(f"{member.mention} has been removed from the ticket blacklist.")
 
 async def setup(bot):
-    await bot.add_cog(TicketCog(bot))
+    await bot.add_cog(TicketSystem(bot))
